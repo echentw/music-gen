@@ -7,25 +7,43 @@ import struct
 from typing import Iterable
 
 
-def decay(ratio: float = 0.9997):
-    def func(ratio, n):
-        return ratio ** n
+def decay_generator(total_frames):
+    decay_factor = 0.99996
 
-    partial_func = functools.partial(func, ratio)
+    start_frames = 500
+    end_frames = 1000
+    middle_frames = total_frames - start_frames - end_frames
 
-    return map(func, itertools.count(0))
+    for i in range(start_frames):
+        yield i / start_frames
+
+    for i in range(middle_frames):
+        yield decay_factor ** i
+
+    last_decayed_value = decay_factor ** middle_frames
+
+    for i in range(end_frames):
+        yield last_decayed_value * (end_frames - i - 1) / end_frames
+
+    while True:
+        yield 0
 
 
-# def decay_func(frame_index, total_frames):
-#     
-
-
-def sine_wave(frequency, framerate=44100, amplitude=0.5, decay_factor=1.0):
+def sine_wave_generator(frequency, amplitude=0.2, framerate=44100):
     period = framerate / frequency
     amplitude = min(max(amplitude, 0.0), 1.0)
     return (
-        (decay_factor ** frame) * amplitude * math.sin(2.0 * math.pi * frame / period)
+        amplitude * math.sin(2.0 * math.pi * frame / period)
         for frame in itertools.count(0)
+    )
+
+
+def wave_generator(frequency, duration_frames, amplitude=0.2, framerate=44100):
+    wave_iter = sine_wave_generator(frequency, amplitude=amplitude, framerate=framerate)
+    decay_iter = decay_generator(duration_frames)
+    return (
+        decay_factor * value
+        for decay_factor, value in zip(decay_iter, wave_iter)
     )
 
 
@@ -58,9 +76,15 @@ class Note:
         self.start = start
         self.end = end
 
+    def duration_frames(self, beats_per_minute, framerate=44100):
+        beats_to_frame_factor = int(60 / beats_per_minute * framerate)
+        start_frame = int(math.floor(self.start * beats_to_frame_factor))
+        end_frame = int(math.ceil(self.end * beats_to_frame_factor))
+        return end_frame - start_frame + 1
+
     def __eq__(self, other):
         return (
-            self.frequency == other.frequency and 
+            self.frequency == other.frequency and
             self.start == other.start and
             self.end == other.end
         )
@@ -91,8 +115,11 @@ def get_sample(notes, beats_per_minute=60, framerate=44100):
             if note in current_waves:
                 del current_waves[note]
             else:
-                current_waves[note] = sine_wave(note.frequency, amplitude=0.1, decay_factor=0.99998)
-                # current_waves[note] = sine_wave(note.frequency, amplitude=0.2)
+                current_waves[note] = wave_generator(
+                    note.frequency,
+                    note.duration_frames(beats_per_minute=beats_per_minute, framerate=framerate),
+                    amplitude=0.3
+                )
             all_notes_index += 1
 
         # Second, yield the next sound data
@@ -224,8 +251,7 @@ def chords():
     ]
 
 
-
 notes = twinkle()
-sample = get_sample(notes, beats_per_minute=80)
+sample = get_sample(notes, beats_per_minute=200)
 with open('output.wav', 'wb') as f:
     write_wavefile(f, sample)
