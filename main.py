@@ -38,8 +38,35 @@ def sine_wave_generator(frequency, amplitude=0.2, framerate=44100):
     )
 
 
+def square_wave_generator(frequency, amplitude=0.2, framerate=44100):
+    def sign(x):
+        return 1 if x >= 0 else -1
+
+    amplitude = min(max(amplitude, 0.0), 1.0)
+    sine_wave = sine_wave_generator(frequency, amplitude=amplitude, framerate=framerate)
+    return (
+        amplitude * sign(value)
+        for value in sine_wave
+    )
+
+
+def sawtooth_wave_generator(frequency, amplitude=0.2, framerate=44100):
+    period = framerate / frequency
+    amplitude = min(max(amplitude, 0.0), 1.0)
+
+    def sawtooth(x):
+        return 2 * ((x / period) - math.floor(x / period)) - 1
+
+    return (
+        amplitude * sawtooth(frame)
+        for frame in itertools.count(0)
+    )
+
+
 def wave_generator(frequency, duration_frames, amplitude=0.2, framerate=44100):
     wave_iter = sine_wave_generator(frequency, amplitude=amplitude, framerate=framerate)
+    # wave_iter = square_wave_generator(frequency, amplitude=amplitude, framerate=framerate)
+    # wave_iter = sawtooth_wave_generator(frequency, amplitude=amplitude, framerate=framerate)
     decay_iter = decay_generator(duration_frames)
     return (
         decay_factor * value
@@ -71,10 +98,12 @@ def write_wavefile(f, samples, nframes=None, nchannels=2, sampwidth=2, framerate
 
 
 class Note:
-    def __init__(self, frequency, start, end):
+    # intensity is the same as amplitude
+    def __init__(self, frequency, start, end, intensity=0.2):
         self.frequency = frequency
         self.start = start
         self.end = end
+        self.intensity = intensity
 
     def duration_frames(self, beats_per_minute, framerate=44100):
         beats_to_frame_factor = int(60 / beats_per_minute * framerate)
@@ -86,11 +115,12 @@ class Note:
         return (
             self.frequency == other.frequency and
             self.start == other.start and
-            self.end == other.end
+            self.end == other.end and
+            self.intensity == other.intensity
         )
 
     def __hash__(self):
-        return hash((self.frequency, self.start, self.end))
+        return hash((self.frequency, self.start, self.end, self.intensity))
 
 
 def get_sample(notes, beats_per_minute=60, framerate=44100):
@@ -118,16 +148,18 @@ def get_sample(notes, beats_per_minute=60, framerate=44100):
                 current_waves[note] = wave_generator(
                     note.frequency,
                     note.duration_frames(beats_per_minute=beats_per_minute, framerate=framerate),
-                    amplitude=0.3
+                    amplitude=note.intensity
                 )
             all_notes_index += 1
 
         # Second, yield the next sound data
-        amplitude = 0.0
+        value = 0.0
         for wave in current_waves.values():
-            amplitude += next(wave)
+            value += next(wave)
 
-        yield (amplitude, amplitude)
+        value = min(max(value, -1.0), 1.0)
+
+        yield (value, value)
 
 
 just_intonation = [
@@ -153,11 +185,15 @@ equal_temperament = [
 frequency_ratios = just_intonation
 # frequency_ratios = equal_temperament
 
+C0 = 261.63
+D0 = C0 * frequency_ratios[0]
+E0 = C0 * frequency_ratios[1]
+F0 = C0 * frequency_ratios[2]
+G0 = C0 * frequency_ratios[3]
+A0 = C0 * frequency_ratios[4]
+B0 = C0 * frequency_ratios[5]
 
-C1 = 261.63
-
-B0 = C1 * frequency_ratios[5] / frequency_ratios[6]
-
+C1 = C0 * frequency_ratios[6]
 D1 = C1 * frequency_ratios[0]
 E1 = C1 * frequency_ratios[1]
 F1 = C1 * frequency_ratios[2]
@@ -172,6 +208,85 @@ F2 = C2 * frequency_ratios[2]
 G2 = C2 * frequency_ratios[3]
 A2 = C2 * frequency_ratios[4]
 B2 = C2 * frequency_ratios[5]
+
+C3 = C2 * frequency_ratios[6]
+D3 = C3 * frequency_ratios[0]
+E3 = C3 * frequency_ratios[1]
+F3 = C3 * frequency_ratios[2]
+G3 = C3 * frequency_ratios[3]
+A3 = C3 * frequency_ratios[4]
+B3 = C3 * frequency_ratios[5]
+
+
+def li_ge():
+    sustain_patterns = [4, 1.5, 1, 0.5, 2, 1.5, 1, 0.5]
+
+    f_chord = [F0, C1, F1, C1, A1, C1, F1, C1]
+    em_chord = [E0, B0, E1, B0, G1, B0, E1, B0]
+    am_chord = [A0, E1, A1, E1, C2, E1, A1, E1]
+    g_chord = [G0, D1, G1, D1, B1, D1, G1, D1]
+    c_chord = [C1, G1, C2, G1, E2, G1, C2, G1]
+
+    harmony_notes = itertools.chain.from_iterable([
+        [(A0, 2), (E1, 1.5), (A1, 1), (E1, 0.5)],
+        zip(f_chord, sustain_patterns),
+        zip(em_chord, sustain_patterns),
+        zip(am_chord, sustain_patterns),
+
+        zip(am_chord, sustain_patterns),
+        zip(f_chord, sustain_patterns),
+        zip(g_chord, sustain_patterns),
+        zip(c_chord, sustain_patterns),
+    ])
+
+    melody_notes = [
+        (A1, 1),
+        (C2, 1),
+
+        (D2, 1),
+        (C2, 0.5),
+        (A1, 1.5),
+        (A1, 1),
+
+        (A1, 2),
+        (G1, 1.5),
+        (A1, 0.5),
+
+        (A1, 6),
+        (A1, 1),
+        (C2, 1),
+
+        (D2, 1),
+        (C2, 0.5),
+        (A1, 1.5),
+        (A1, 1),
+
+        (A1, 2),
+        (G1, 1.5),
+        (E2, 0.5),
+
+        (E2, 8),
+    ]
+
+    notes = []
+
+    current_beat = 0.0
+    for frequency, duration in harmony_notes:
+        notes.append(
+            Note(frequency, start=current_beat, end=current_beat + duration, intensity=0.1)
+        )
+        current_beat += 0.5
+
+    current_beat = 0.0
+    for frequency, duration in melody_notes:
+        notes.append(
+            Note(frequency, start=current_beat, end=current_beat + duration, intensity=0.5)
+        )
+        current_beat += duration
+
+    return notes
+
+
 
 def twinkle():
     harmony_notes = [
@@ -251,7 +366,7 @@ def chords():
     ]
 
 
-notes = twinkle()
-sample = get_sample(notes, beats_per_minute=200)
+notes = li_ge()
+sample = get_sample(notes, beats_per_minute=120)
 with open('output.wav', 'wb') as f:
     write_wavefile(f, sample)
