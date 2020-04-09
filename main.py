@@ -1,7 +1,7 @@
 import itertools
 
 from lib.io import write_wavefile
-from lib.tuning_systems import EQUAL_TEMPERAMENT, JUST_INTONATION
+from lib.tuning_systems import EQUAL_TEMPERAMENT, JUST_INTONATION, PYTHAGOREAN_TUNING
 from lib.note_names import *
 
 from music_gen import produce_sample, Note
@@ -85,7 +85,7 @@ def li_ge(tuning_system):
     return notes
 
 
-notes = li_ge(tuning_system=JUST_INTONATION)
+notes = li_ge(tuning_system=PYTHAGOREAN_TUNING)
 # notes = chords(tuning_system=JUST_INTONATION)
 # notes = c_scale(tuning_system=JUST_INTONATION)
 # notes = twinkle(tuning_system=JUST_INTONATION)

@@ -63,3 +63,18 @@ EQUAL_TEMPERAMENT = TuningSystem(
         2,
     ]
 )
+
+
+PYTHAGOREAN_TUNING = TuningSystem(
+    ref_note_name='A4',
+    ref_note_frequency=440.0,
+    frequency_ratios=[
+        9/8,
+        81/64,
+        4/3,
+        3/2,
+        27/16,
+        243/128,
+        2,
+    ]
+)
