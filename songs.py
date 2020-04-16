@@ -168,3 +168,14 @@ def li_ge(tuning_system):
         current_beat += duration
 
     return notes
+
+
+
+ALL_SONGS = {
+    'twinkle': twinkle,
+    'c_scale': c_scale,
+    'chords': chords,
+    'li_ge': li_ge
+}
+DEFAULT_SONG = 'li_ge'
+assert DEFAULT_SONG in ALL_SONGS, 'default song not present in ALL_SONGS'
